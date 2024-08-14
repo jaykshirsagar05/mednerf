@@ -45,7 +45,7 @@ class Generator(object):
 
         self.render = partial(render, H=self.H, W=self.W, focal=self.focal, chunk=self.chunk)
 
-    def __call__(self, z, y=None, rays=None):
+    def __call__(self, z, y=None, rays=None, ts=None):
         bs = z.shape[0]
         if rays is None:
             rays = torch.cat([self.sample_rays() for _ in range(bs)], dim=1)
@@ -70,7 +70,7 @@ class Generator(object):
             
 
         render_kwargs['features'] = z
-        rgb, disp, acc, extras = render(self.H, self.W, self.focal, chunk=self.chunk, rays=rays,
+        rgb, disp, acc, extras = render(self.H, self.W, self.focal, chunk=self.chunk, rays=rays, frame_time=ts,
                                         **render_kwargs)
 
         rays_to_output = lambda x: x.view(len(x), -1) * 2 - 1      # (BxN_samples)xC

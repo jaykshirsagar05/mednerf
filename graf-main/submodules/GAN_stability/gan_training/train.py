@@ -43,7 +43,7 @@ class Trainer(object):
         self.reg_param = reg_param
         self.aug_policy = aug_policy
 
-    def generator_trainstep(self, y, z):
+    def generator_trainstep(self, y, z, ts):
         assert(y.size(0) == z.size(0))
         toggle_grad(self.generator, True)
         toggle_grad(self.discriminator, False)
@@ -51,7 +51,7 @@ class Trainer(object):
         self.discriminator.train()
         self.g_optimizer.zero_grad()
 
-        x_fake = self.generator(z, y)
+        x_fake = self.generator(z, y, ts=ts)
         y = torch.zeros_like(y)
         GI_loss = 0
         GA_loss = 0
@@ -76,7 +76,7 @@ class Trainer(object):
 
         return G_loss
 
-    def discriminator_trainstep(self, x_real, y, z, data_aug):
+    def discriminator_trainstep(self, x_real, y, z, data_aug, ts):
         toggle_grad(self.generator, False)
         toggle_grad(self.discriminator, True)
         self.generator.train()
@@ -112,7 +112,7 @@ class Trainer(object):
         
         # On fake data
         with torch.no_grad():
-            x_fake = self.generator(z, y)
+            x_fake = self.generator(z, y, ts=ts)
 
         y = torch.zeros_like(y)
         DI_fake_loss = 0

@@ -1,0 +1,23 @@
+expname: dmednerf_DEBUG_081424
+data:
+  datadir:   
+  - /q/SYNTHETIC-ANGIO-AI/common_images/cardiacswing_lca
+  type: angio
+  imsize: 512
+  white_bkgd: False
+  radius: 9.5,10.5
+  near: 7.5
+  far: 12.5
+  fov: 30.
+  umin: 0 # 0 deg
+  umax: 0.44722222222 # 161 deg
+  vmin: 0 # 0 deg
+  vmax: 0.67412246642 # 110.38 deg
+training:
+  nworkers: 0
+nerf:
+  nerf_type: direct_temporal
+  no_batching: True
+  not_zero_canonical: False
+  use_two_models_for_fine: 
+  lindisp:

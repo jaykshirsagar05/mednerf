@@ -17,9 +17,9 @@ class Trainer(TrainerBase):
         if self.use_amp:
             self.scaler = torch.cuda.amp.GradScaler()
 
-    def generator_trainstep(self, y, z):
+    def generator_trainstep(self, y, z, ts=None):
         if not self.use_amp:
-            return super(Trainer, self).generator_trainstep(y, z)
+            return super(Trainer, self).generator_trainstep(y, z, ts=ts)
         assert (y.size(0) == z.size(0))
         toggle_grad(self.generator, True)
         toggle_grad(self.discriminator, False)
@@ -38,8 +38,8 @@ class Trainer(TrainerBase):
 
         return gloss.item()
 
-    def discriminator_trainstep(self, x_real, y, z, data_aug):
-        return super(Trainer, self).discriminator_trainstep(x_real, y, z, data_aug)       # spectral norm raises error for when using amp
+    def discriminator_trainstep(self, x_real, y, z, data_aug, ts):
+        return super(Trainer, self).discriminator_trainstep(x_real, y, z, data_aug, ts=ts)       # spectral norm raises error for when using amp
 
 
 class Evaluator(EvaluatorBase):
@@ -58,7 +58,7 @@ class Evaluator(EvaluatorBase):
         return self.generator.val_ray_sampler(self.generator.H, self.generator.W,
                                               self.generator.focal, pose)[0]
 
-    def create_samples(self, z, poses=None):
+    def create_samples(self, z, poses=None, ts=None):
         self.generator.eval()
         N_samples = len(z)
         device = self.generator.device
@@ -77,7 +77,7 @@ class Evaluator(EvaluatorBase):
                     bs = len(z_i)
                     if rays_i is not None:
                         rays_i = rays_i.permute(1, 0, 2, 3).flatten(1, 2)       # Bx2x(HxW)xC -> 2x(BxHxW)x3
-                    rgb_i, disp_i, acc_i, _ = self.generator(z_i, rays=rays_i)
+                    rgb_i, disp_i, acc_i, _ = self.generator(z_i, rays=rays_i, ts=ts)
 
                     reshape = lambda x: x.view(bs, self.generator.H, self.generator.W, x.shape[1]).permute(0, 3, 1, 2)  # (NxHxW)xC -> NxCxHxW
                     rgb.append(reshape(rgb_i).cpu())
@@ -88,7 +88,7 @@ class Evaluator(EvaluatorBase):
                     bs = len(z)
                     if rays_i is not None:
                         rays_i = rays_i.permute(1, 0, 2, 3).flatten(1, 2)       # Bx2x(HxW)xC -> 2x(BxHxW)x3
-                    rgb_i, disp_i, acc_i, _ = self.generator(z, rays=rays_i)
+                    rgb_i, disp_i, acc_i, _ = self.generator(z, rays=rays_i, ts=ts)
 
                     reshape = lambda x: x.view(bs, self.generator.H, self.generator.W, x.shape[1]).permute(0, 3, 1, 2)  # (NxHxW)xC -> NxCxHxW
                     rgb.append(reshape(rgb_i).cpu())

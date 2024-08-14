@@ -7,8 +7,8 @@ import torch
 import torch.nn.functional as F
 from functools import partial
 
-from run_dnerf_helpers import *
-from load_blender import load_blender_data
+from submodules.dnerf.run_dnerf_helpers import *
+from submodules.dnerf.load_blender import load_blender_data
 
 try:
     from apex import amp
@@ -55,19 +55,7 @@ def run_network(inputs, viewdirs, frame_time, fn, embed_fn, embeddirs_fn, embedt
         embedded_times = [embedded_time, embedded_time]
     else:
         assert NotImplementedError
-
-    # embed views
-    if viewdirs is not None:
-        input_dirs = viewdirs[:,None].expand(inputs.shape)
-        input_dirs_flat = torch.reshape(input_dirs, [-1, input_dirs.shape[-1]])
-        embedded_dirs = embeddirs_fn(input_dirs_flat)
-        embedded = torch.cat([embedded, embedded_dirs], -1)
-        if features_appearance is not None:
-            embedded = torch.cat([embedded, features_appearance], dim=-1)
-    else:
-        if features_appearance is not None:
-            embedded = torch.cat([embedded, features_appearance], dim=-1)
-
+        
     if features is not None:
         # expand features to shape of flattened inputs
         features = features.unsqueeze(1).expand(-1, inputs.shape[1], -1).flatten(0, 1)
@@ -81,6 +69,17 @@ def run_network(inputs, viewdirs, frame_time, fn, embed_fn, embeddirs_fn, embedt
             features_appearance = None
 
         embedded = torch.cat([embedded, features_shape], -1)
+    # embed views
+    if viewdirs is not None:
+        input_dirs = viewdirs[:,None].expand(inputs.shape)
+        input_dirs_flat = torch.reshape(input_dirs, [-1, input_dirs.shape[-1]])
+        embedded_dirs = embeddirs_fn(input_dirs_flat)
+        embedded = torch.cat([embedded, embedded_dirs], -1)
+        if features_appearance is not None:
+            embedded = torch.cat([embedded, features_appearance], dim=-1)
+    else:
+        if features_appearance is not None:
+            embedded = torch.cat([embedded, features_appearance], dim=-1)
 
     outputs_flat, position_delta_flat = batchify(fn, netchunk)(embedded, embedded_times)
     outputs = torch.reshape(outputs_flat, list(inputs.shape[:-1]) + [outputs_flat.shape[-1]])
@@ -298,6 +297,7 @@ def render_rays(ray_batch,
                 network_fn,
                 network_query_fn,
                 N_samples,
+                features=None,
                 retraw=False,
                 lindisp=False,
                 perturb=0.,
@@ -346,7 +346,7 @@ def render_rays(ray_batch,
         pts = rays_o[...,None,:] + rays_d[...,None,:] * z_vals[...,:,None] # [N_rays, N_samples, 3]
 
         if N_importance <= 0:
-            raw, position_delta = network_query_fn(pts, viewdirs, frame_time, network_fn)
+            raw, position_delta = network_query_fn(pts, viewdirs, frame_time, network_fn, features)
             rgb_map, disp_map, acc_map, weights, depth_map = raw2outputs(raw, z_vals, rays_d, raw_noise_std, white_bkgd, pytest=pytest)
         else:
             if use_two_models_for_fine:
@@ -364,7 +364,7 @@ def render_rays(ray_batch,
 
     pts = rays_o[...,None,:] + rays_d[...,None,:] * z_vals[...,:,None] # [N_rays, N_samples + N_importance, 3]
     run_fn = network_fn if network_fine is None else network_fine
-    raw, position_delta = network_query_fn(pts, viewdirs, frame_time, run_fn)
+    raw, position_delta = network_query_fn(pts, viewdirs, frame_time, run_fn, features)
     rgb_map, disp_map, acc_map, weights, _ = raw2outputs(raw, z_vals, rays_d, raw_noise_std, white_bkgd, pytest=pytest)
 
     ret = {'rgb_map' : rgb_map, 'disp_map' : disp_map, 'acc_map' : acc_map, 'z_vals' : z_vals,

@@ -77,7 +77,7 @@ if __name__ == '__main__':
         hwfr[2] = hw_ortho
 
     config['data']['hwfr'] = hwfr         # add for building generator
-    print(train_dataset, hwfr, render_poses.shape)
+    print(train_dataset, hwfr, render_poses.shape, len(times))
 
     train_loader = iter(torch.utils.data.DataLoader(
         train_dataset,
@@ -223,17 +223,18 @@ if __name__ == '__main__':
         epoch_idx += 1
         print('Start epoch %d...' % epoch_idx)
 
-        for x_real in train_loader:
+        for idx, x_real in enumerate(train_loader):
+            frame_time = torch.tensor(times[idx]).to(device)
             t_it = time.time()
             it += 1
             generator.ray_sampler.iterations = it   # for scale annealing
 
             # Sample patches for real data
             rgbs = img_to_patch(x_real.to(device))          # N_samples x C
-
+            print("DEBUG LOGS RGBS:",{rgbs})
             # Discriminator updates
             z = zdist.sample((batch_size,))
-            dloss, reg = trainer.discriminator_trainstep(rgbs, y=y, z=z, data_aug=config['data']['augmentation'])
+            dloss, reg = trainer.discriminator_trainstep(rgbs, y=y, z=z, data_aug=config['data']['augmentation'], ts=frame_time)
             logger.add('losses', 'discriminator', dloss, it=it)
             logger.add('losses', 'regularizer', reg, it=it)
 
@@ -242,7 +243,7 @@ if __name__ == '__main__':
               generator.decrease_nerf_noise(it)
 
             z = zdist.sample((batch_size,))
-            gloss = trainer.generator_trainstep(y=y, z=z)
+            gloss = trainer.generator_trainstep(y=y, z=z, ts=frame_time)
             logger.add('losses', 'generator', gloss, it=it)
 
             if config['training']['take_model_average']:
@@ -270,7 +271,7 @@ if __name__ == '__main__':
 
             # (ii) Sample if necessary
             if ((it % config['training']['sample_every']) == 0) or ((it < 500) and (it % 100 == 0)):
-                rgb, depth, acc = evaluator.create_samples(ztest.to(device), poses=ptest)
+                rgb, depth, acc = evaluator.create_samples(ztest.to(device), poses=ptest, ts=frame_time)
                 logger.add_imgs(rgb, 'rgb', it)
                 logger.add_imgs(depth, 'depth', it)
                 logger.add_imgs(acc, 'acc', it)

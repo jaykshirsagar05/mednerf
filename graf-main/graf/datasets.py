@@ -1,4 +1,5 @@
 import glob
+import os
 import numpy as np
 from PIL import Image
 
@@ -99,23 +100,26 @@ class AngioDataset(VisionDataset):
     """
 
     def __init__(self, data_dirs, fps, transforms=None):
-        # Use multiple root folders
-        if not isinstance(data_dirs, list):
-            data_dirs = [data_dirs]
+        # # Use multiple root folders
+        # if not isinstance(data_dirs, list):
+        #     data_dirs = [data_dirs]
 
         # initialize base class
-        super(ImageDataset, self).__init__(root=data_dirs, transform=transforms)
+        VisionDataset.__init__(self, root=data_dirs, transform=transforms)
 
         self.fps = fps  # Use fps from the constructor
         self.filenames = []
         self.times = []
-        self.root = data_dirs
+        self.root = data_dirs[0]
 
-        for ddir in self.root:
-            filenames = self._get_files(ddir)
+        for ddir in os.listdir(self.root):
+            ddir_path = os.path.join(self.root, str(ddir))
+            filenames = self._get_files(ddir_path)
             num_frames = len(filenames)
             # Calculate timestamps independently for each directory
             timestamps = np.linspace(0, (num_frames - 1) / self.fps, num_frames).astype(np.float32)
+            # Normalize timestamps between 0 and 1
+            timestamps = timestamps / timestamps[-1] if timestamps[-1] != 0 else timestamps
             self.filenames.extend(filenames)
             self.times.extend(timestamps)
 
@@ -133,5 +137,5 @@ class AngioDataset(VisionDataset):
             img = self.transform(img)
         return img
     
-    def get_time(self, idx):
+    def get_timestamp(self, idx):
         return self.times[idx]
